@@ -1,0 +1,3 @@
+/home/seungho/Desktop/Root-Analysis/build/CMakeFiles/rebuild_cache.dir
+/home/seungho/Desktop/Root-Analysis/build/CMakeFiles/edit_cache.dir
+/home/seungho/Desktop/Root-Analysis/build/CMakeFiles/autocropper.dir
