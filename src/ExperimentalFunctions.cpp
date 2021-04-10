@@ -1,14 +1,22 @@
 #include "ExperimentalFunctions.h"
 #include "FileUtilities.h"
 #include "OcvUtilities.h"
+#include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/imgproc/types_c.h>
 #include <opencv2/video.hpp>
+
 
 using namespace cv;
 using namespace experimental;
 using namespace std;
 using namespace OcvUtility;
+
+//Testing trackbar
+int g_slider; // slider pos value
+int gslider_max; // slider max value
+
 
 namespace experimental
 {
@@ -90,7 +98,7 @@ namespace experimental
 	//
 	// Computes the average of several images.
 	//////////////////////////////////////////////////////////////////////////////////
-	cv::Mat computeAverageImage(const vector<Mat>& images)
+	Mat computeAverageImage(const vector<Mat>& images)
 	{
 		Mat averageImage = Mat::zeros(images.at(0).size().height, images.at(0).size().width, CV_32FC1);
 
@@ -127,7 +135,7 @@ namespace experimental
 	// Code from:
 	// http://docs.opencv.org/2.4.10/doc/tutorials/imgproc/imgtrans/sobel_derivatives/sobel_derivatives.html
 	//////////////////////////////////////////////////////////////////////////////////
-	cv::Mat computeGradientImage(Mat image)
+	Mat computeGradientImage(Mat image)
 	{
 		int scale = 1;
 		int delta = 0;
@@ -159,13 +167,13 @@ namespace experimental
 	//
 	// Draw a red rectangle on the image.
 	//////////////////////////////////////////////////////////////////////////////////
-	cv::Mat drawRedRectOnImage(Mat image, Rect rect, int thickness)
+	Mat drawRedRectOnImage(Mat image, Rect rect, int thickness)
 	{
 		Mat convertedImage = image.clone();
 
-		cvtColor(image, convertedImage, cv::COLOR_GRAY2RGB);
-		rectangle(convertedImage, rect, Scalar(0, 0, 255), thickness);
-
+		cv::cvtColor(image.clone(), convertedImage, IMREAD_COLOR);
+		cv::rectangle(convertedImage, rect, Scalar(0, 0, 255), thickness);
+		
 		return convertedImage;
 	}
 
@@ -175,7 +183,7 @@ namespace experimental
 	// Compute the innermost rectangle that can be defined based on the specified
 	// image.
 	//////////////////////////////////////////////////////////////////////////////////
-	cv::Rect computeInnermostRectangle(Mat image)	//TODO: This function name is terrible.
+	Rect computeInnermostRectangle(Mat image)	//TODO: This function name is terrible.
 	{
 		Point center = Point(image.size().width / 2, image.size().height / 2);
 		int u = 0, d = image.size().height, l = 0, r = image.size().width;
@@ -192,7 +200,7 @@ namespace experimental
 			}
 		}
 
-		// Find the nearest nonwhite pixel below.
+		// Find the nearest nonwhite pixel below.Unhandled exception at 0x00007FFF4D503B29 in autocropper.exe: Microsoft C++ exception: cv::Exception at memory location 0x0000008930DAEB50.
 		for (int i = center.y; i < image.size().height; ++i)
 		{
 			Point currentPoint = Point(center.x, i);
@@ -237,7 +245,7 @@ namespace experimental
 	// For now let's only check the top and bottom since this will only be used to
 	// find the horizontal lines in the container image.
 	//////////////////////////////////////////////////////////////////////////////////
-	cv::Rect computeOutermostRectangle(Mat image)
+	Rect computeOutermostRectangle(Mat image)
 	{
 		Point center = Point(image.size().width / 2, image.size().height / 2);
 		int u = 0, d = image.size().height, l = 0, r = image.size().width;
@@ -275,7 +283,7 @@ namespace experimental
 	//
 	// Returns an image containing the largest horizontal lines found in the image.
 	//////////////////////////////////////////////////////////////////////////////////
-	cv::Mat findLargestHorizontalLines(Mat image, const double percentOfWidth)
+	Mat findLargestHorizontalLines(Mat image, const double percentOfWidth)
 	{
 		Mat horizontalLines;
 
@@ -291,7 +299,7 @@ namespace experimental
 	//
 	// Returns an image containing the largest vertical lines found in the image.
 	//////////////////////////////////////////////////////////////////////////////////
-	cv::Mat findLargestVerticalLines(Mat image, const double percentOfHeight)
+	Mat findLargestVerticalLines(Mat image, const double percentOfHeight)
 	{
 		Mat verticalLines;
 
@@ -301,13 +309,13 @@ namespace experimental
 
 		return verticalLines;
 	}
-
+	
 	//////////////////////////////////////////////////////////////////////////////////
 	// computeForegroundImage()
 	//
 	// Computes a foreground image based on some background subtraction method.
 	//////////////////////////////////////////////////////////////////////////////////
-	cv::Mat computeForegroundImage(const vector<Mat>& images)
+	Mat computeForegroundImage(const vector<Mat>& images)
 	{
 		Mat foregroundMask, foregroundImage, backgroundImage;
 		Ptr<BackgroundSubtractorMOG2> pMOG2 = createBackgroundSubtractorMOG2();
@@ -316,7 +324,7 @@ namespace experimental
 
 		int i = 0;
 
-		for (cv::Mat image : images)
+		for (Mat image : images)
 		{
 			if (foregroundImage.empty())
 				foregroundImage.create(image.size(), image.type());
@@ -334,22 +342,90 @@ namespace experimental
 
 		waitKey();
 	}
+	/////////////////////////////////////////////////////////////////////////////////
+	// imagePreprocess()
+	//
+	// To get rid of all the noises
+	//////////////////////////////////////////////////////////////////////////////////
+	std::vector<cv::Mat> imagePreprocess(const std::vector<cv::Mat>& images) {
+		// Return Vector
+		vector <cv::Mat> preprocess_images;
+		cv::Mat image = images[1];
+		int rows = image.rows;
+		int cols = image.cols;
+		
+		//Blurred image looks good 
+		cv::Mat gaussian_blur, blur_image;
+		blur(image, blur_image, Size(3, 3));
+		GaussianBlur(image, gaussian_blur, Size(3, 3), 0, 0);
+
+		// 13 & 37 is the best for the blur without interfereing
+		// 40 is the best for the median blur without interfering
+		// 15 & 43 is the best for the gausian blur
+		
+
+		Mat result_gausian, result_blur;
+		Canny(blur_image, result_blur, 12, 36, 3);
+		Canny(gaussian_blur, result_gausian, 15, 43, 3);
+		
+		vector<vector<cv::Point>> contours_g;
+		vector<vector<cv::Point>> contours_b;
+		Mat mask1(image.size(), CV_8U, cv::Scalar(255));
+		Mat mask2(image.size(), CV_8U, cv::Scalar(255));
+		Mat element3 = getStructuringElement(cv::MORPH_RECT, Size(3, 3), Point(1, 1));
+		/******************************** Blur **********************************/
+		// Find the contour on blur image
+		cv::morphologyEx(result_blur.clone(), result_blur, cv::MORPH_DILATE, element3);
+		cv::findContours(result_blur.clone(), contours_b, cv::RETR_TREE, cv::CHAIN_APPROX_NONE, Point(0, 0));
+		
+		// Filtering
+		int cmin = 59;  
+		int cmax = 5650;
+		std::vector<std::vector<cv::Point>>::const_iterator itc = contours_b.begin();
+		while (itc != contours_b.end()) {
+			if (itc->size() < cmin || itc->size() > cmax)
+				itc = contours_b.erase(itc);
+			else
+				++itc;
+		}
+		drawContours(mask1, contours_b, -1, cv::Scalar(0), cv::FILLED);
+		
+		/*************************** Gaussian Blur ****************************/
+		cv::morphologyEx(result_gausian.clone(), result_gausian, cv::MORPH_DILATE, element3);
+		cv::findContours(result_gausian.clone(), contours_g, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+		
+		// Filtering
+		int cmin_g = 59;
+		int cmax_g = 5650;
+		std::vector<std::vector<cv::Point>>::const_iterator itc_g = contours_g.begin();
+		while (itc_g != contours_g.end()) {
+			if (itc_g->size() < cmin_g || itc_g->size() > cmax_g)
+				itc_g = contours_g.erase(itc_g);
+			else
+				++itc_g;
+		}
+		drawContours(mask2, contours_g, -1, cv::Scalar(0), cv::FILLED);
+
+		// Find the bounding Rectangle
+		
+		return preprocess_images;
+	}
 
 	//////////////////////////////////////////////////////////////////////////////////
 	// computeForegroundImages()
 	//
 	// Computes a foreground images based on some background subtraction method.
 	//////////////////////////////////////////////////////////////////////////////////
-	vector<cv::Mat> computeForegroundImages(const vector<cv::Mat>& images)
+	vector<Mat> computeForegroundImages(const vector<Mat>& images)
 	{
-		cv::Mat foregroundMask, foregroundImage, backgroundImage;
+		Mat foregroundMask, foregroundImage, backgroundImage;
 		Ptr<BackgroundSubtractorMOG2> pMOG2 = createBackgroundSubtractorMOG2();
 
-		vector<cv::Mat> foregroundImages;
+		vector<Mat> foregroundImages;
 
 		int i = 0;
 
-		for (cv::Mat image : images)
+		for (Mat image : images)
 		{
 			if (foregroundImage.empty())
 				foregroundImage.create(image.size(), image.type());
@@ -393,14 +469,14 @@ namespace experimental
 		int windowWidth = 1024; int windowHeight = 800;
 		int bin_w = cvRound((double)windowWidth / numBins);
 
-		cv::Mat histImage(windowHeight, windowWidth, CV_8UC1, Scalar(0, 0, 0));
+		Mat histImage(windowHeight, windowWidth, CV_8UC1, Scalar(0, 0, 0));
 
 		/// Normalize the result to [ 0, histImage.rows ]
-		cv::normalize(histogram, histogram, 0, histImage.rows, NORM_MINMAX, -1, Mat());
+		normalize(histogram, histogram, 0, histImage.rows, NORM_MINMAX, -1, Mat());
 
 		for (int i = 1; i < numBins; i++)
 		{
-			cv::line(histImage, Point(bin_w*(i - 1), windowHeight - cvRound(histogram.at<float>(i - 1))),
+			line(histImage, Point(bin_w*(i - 1), windowHeight - cvRound(histogram.at<float>(i - 1))),
 				Point(bin_w*(i), windowHeight - cvRound(histogram.at<float>(i))),
 				Scalar(255, 255, 255));
 		}
@@ -413,7 +489,7 @@ namespace experimental
 	//
 	// Another method to compute the histogram.
 	//////////////////////////////////////////////////////////////////////////////////
-	cv::Mat plotHistogram(Mat image)
+	Mat plotHistogram(Mat image)
 	{
 		const unsigned int NUMBER_OF_BINS = 256;
 		const unsigned int WINDOW_HEIGHT = NUMBER_OF_BINS;
@@ -458,11 +534,11 @@ namespace experimental
 	// edges, with a smooth gradient between. This mask may be sensitive to 
 	// variations between length and width of the image.
 	//////////////////////////////////////////////////////////////////////////////////
-	cv::Mat generateEnhancedCenterMask(Size size)
+	Mat generateEnhancedCenterMask(Size size)
 	{
-		cv::Mat image = Mat::ones(size, CV_8UC1);
+		Mat image = Mat::ones(size, CV_8UC1);
 		padImage(image, image);
-		distanceTransform(image, image, DIST_C, 3);
+		distanceTransform(image, image, CV_DIST_C, 3);
 		double maxVal;
 		minMaxLoc(image, NULL, &maxVal);
 		image *= 1/maxVal;
@@ -470,5 +546,9 @@ namespace experimental
 		removePadding(image, image);
 
 		return image;
+	}
+
+	void on_trackbar(int, void*) {
+		printf("%d\n", g_slider);
 	}
 }

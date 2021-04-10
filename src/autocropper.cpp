@@ -3,6 +3,7 @@
 #include "ImageReader.h"
 #include "OcvUtilities.h"
 #include "TrackbarWindow.h"
+
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
@@ -88,7 +89,7 @@ void cropOriginalImages(vector<Mat> originalImages, Rect cropRegion)
 	const string outputExtension = ".png";
 	int i = 1;
 
-	for (auto image : originalImages)
+	for (auto &image : originalImages)
 	{
 		stringstream ss;
 		ss << outputDirectory << i++ << outputExtension;
@@ -116,6 +117,7 @@ int main(int argc, char** argv)
 
 	vector<Mat> originalImages = ImageReader::readDataset(argv[1]);
 
+	vector<Mat> preprocess_Images = imagePreprocess(originalImages);
 	vector<Mat> foregroundImages = computeForegroundImages(originalImages);
 	
 	Mat orImage = or_op(foregroundImages);

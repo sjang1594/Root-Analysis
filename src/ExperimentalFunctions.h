@@ -1,6 +1,7 @@
 #pragma once
 
 #include <opencv2/core.hpp>
+#include <iostream>
 #include <vector>
 
 //////////////////////////////////////////////////////////////////////////////////
@@ -20,9 +21,11 @@ namespace experimental
 	cv::Mat findLargestHorizontalLines(cv::Mat image, const double percentOfWidth);
 	cv::Mat findLargestVerticalLines(cv::Mat image, const double PercentOfHeight);
 	cv::Mat computeForegroundImage(const std::vector<cv::Mat>& images);
+	std::vector<cv::Mat> imagePreprocess(const std::vector<cv::Mat>& images);
 	std::vector<cv::Mat> computeForegroundImages(const std::vector<cv::Mat>& images);
 	cv::Mat computeHistogram(cv::Mat image);
 	cv::Mat plotHistogram(cv::Mat image);
 
 	cv::Mat generateEnhancedCenterMask(cv::Size size);
+	void on_trackbar(int, void*);
 }
