@@ -23,9 +23,12 @@ namespace experimental
 	cv::Mat computeForegroundImage(const std::vector<cv::Mat>& images);
 	std::vector<cv::Mat> imagePreprocess(const std::vector<cv::Mat>& images);
 	std::vector<cv::Mat> computeForegroundImages(const std::vector<cv::Mat>& images);
+
+	// Histogram
 	cv::Mat computeHistogram(cv::Mat image);
 	cv::Mat plotHistogram(cv::Mat image);
 
+	// Mask Generation
 	cv::Mat generateEnhancedCenterMask(cv::Size size);
-	void on_trackbar(int, void*);
+	cv::Mat applyMask(cv::Mat& image, cv::Mat& mask);
 }

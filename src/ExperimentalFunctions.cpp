@@ -13,11 +13,6 @@ using namespace experimental;
 using namespace std;
 using namespace OcvUtility;
 
-//Testing trackbar
-int g_slider; // slider pos value
-int gslider_max; // slider max value
-
-
 namespace experimental
 {
 	//////////////////////////////////////////////////////////////////////////////////
@@ -265,16 +260,6 @@ namespace experimental
 			}
 		}
 
-		//for (int i = image.size().height - 1; i >= 0; --i)
-		//{
-		//	Point currentPoint = Point(center.x, i);
-		//	if (image.at<uchar>(currentPoint) != 0)
-		//	{
-		//		d = i;
-		//		break;
-		//	}
-		//}
-
 		return Rect(l, u, r - l, d - u);
 	}
 
@@ -350,64 +335,54 @@ namespace experimental
 	std::vector<cv::Mat> imagePreprocess(const std::vector<cv::Mat>& images) {
 		// Return Vector
 		vector <cv::Mat> preprocess_images;
-		cv::Mat image = images[1];
-		int rows = image.rows;
-		int cols = image.cols;
-		
-		//Blurred image looks good 
-		cv::Mat gaussian_blur, blur_image;
-		blur(image, blur_image, Size(3, 3));
-		GaussianBlur(image, gaussian_blur, Size(3, 3), 0, 0);
+		int i = 0;
+		for (Mat image : images) {
+			cv::Mat gaussian_blur;
+			GaussianBlur(image, gaussian_blur, Size(3, 3), 0, 0);
 
-		// 13 & 37 is the best for the blur without interfereing
-		// 40 is the best for the median blur without interfering
-		// 15 & 43 is the best for the gausian blur
-		
+			// 12 - 13 & 37 is the best for the blur without interfereing
+			// 40 is the best for the median blur without interfering
+			// 14 - 15 & 43 is the best for the gausian blur
 
-		Mat result_gausian, result_blur;
-		Canny(blur_image, result_blur, 12, 36, 3);
-		Canny(gaussian_blur, result_gausian, 15, 43, 3);
-		
-		vector<vector<cv::Point>> contours_g;
-		vector<vector<cv::Point>> contours_b;
-		Mat mask1(image.size(), CV_8U, cv::Scalar(255));
-		Mat mask2(image.size(), CV_8U, cv::Scalar(255));
-		Mat element3 = getStructuringElement(cv::MORPH_RECT, Size(3, 3), Point(1, 1));
-		/******************************** Blur **********************************/
-		// Find the contour on blur image
-		cv::morphologyEx(result_blur.clone(), result_blur, cv::MORPH_DILATE, element3);
-		cv::findContours(result_blur.clone(), contours_b, cv::RETR_TREE, cv::CHAIN_APPROX_NONE, Point(0, 0));
-		
-		// Filtering
-		int cmin = 59;  
-		int cmax = 5650;
-		std::vector<std::vector<cv::Point>>::const_iterator itc = contours_b.begin();
-		while (itc != contours_b.end()) {
-			if (itc->size() < cmin || itc->size() > cmax)
-				itc = contours_b.erase(itc);
-			else
-				++itc;
-		}
-		drawContours(mask1, contours_b, -1, cv::Scalar(0), cv::FILLED);
-		
-		/*************************** Gaussian Blur ****************************/
-		cv::morphologyEx(result_gausian.clone(), result_gausian, cv::MORPH_DILATE, element3);
-		cv::findContours(result_gausian.clone(), contours_g, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
-		
-		// Filtering
-		int cmin_g = 59;
-		int cmax_g = 5650;
-		std::vector<std::vector<cv::Point>>::const_iterator itc_g = contours_g.begin();
-		while (itc_g != contours_g.end()) {
-			if (itc_g->size() < cmin_g || itc_g->size() > cmax_g)
-				itc_g = contours_g.erase(itc_g);
-			else
-				++itc_g;
-		}
-		drawContours(mask2, contours_g, -1, cv::Scalar(0), cv::FILLED);
+			Mat result_gausian;
+			Canny(gaussian_blur, result_gausian, 13, 40, 3);
 
-		// Find the bounding Rectangle
-		
+			// Contour
+			vector<vector<cv::Point>> contours_g;
+			Mat mask_gaussian(image.size(), CV_8U, cv::Scalar(255));
+
+			// Morphology Size
+			Mat element3 = getStructuringElement(cv::MORPH_RECT, Size(3, 3), Point(1, 1));
+
+			/*************************** Gaussian Blur ******************************/
+			cv::Mat gaussian_mat(image.size(), CV_8U, cv::Scalar(255));
+			cv::morphologyEx(result_gausian.clone(), gaussian_mat, cv::MORPH_DILATE, element3);
+			cv::findContours(gaussian_mat.clone(), contours_g, cv::RETR_TREE, cv::CHAIN_APPROX_NONE);
+
+			// Filtering - 1 : Filtering with arch length
+			int cmin_g = 135;
+			std::vector<std::vector<cv::Point>>::const_iterator itc_g = contours_g.begin();
+			while (itc_g != contours_g.end()) {
+				if (itc_g->size() < cmin_g)
+					itc_g = contours_g.erase(itc_g);
+				else
+					++itc_g;
+			}
+
+			// Filtering - 2 : Filtering with Contour Area
+			drawContours(mask_gaussian, contours_g, -1, cv::Scalar(0), cv::FILLED);
+			cv::morphologyEx(mask_gaussian.clone(), mask_gaussian, cv::MORPH_ERODE, element3);
+			
+			Mat final_mask(image.size(), image.type(), cv::Scalar(255)); 
+			final_mask = applyMask(image, mask_gaussian);
+			/************************************************************************/
+			string filename = utility::FileUtilities::buildFilename("TestImages/DEBUG/mask_images/", ++i);
+			if (i > 1)	//TODO_DR: Deal with the first file.
+			{
+				imwrite(filename, final_mask);
+				preprocess_images.push_back(final_mask);
+			}
+		}			
 		return preprocess_images;
 	}
 
@@ -432,20 +407,18 @@ namespace experimental
 
 			pMOG2->apply(image, foregroundMask);
 
-			foregroundImage = Scalar::all(0);
-			image.copyTo(foregroundImage, foregroundMask);	//TODO: Does using the mask rather than the image improve the results?
+			//foregroundImage = Scalar::all(0);
+			//image.copyTo(foregroundImage, foregroundMask);	//TODO: Does using the mask rather than the image improve the results?
 
 			string filename = utility::FileUtilities::buildFilename("TestImages/DEBUG/foreground/", ++i);
-			if (i > 1)	//TODO_DR: Deal with the first file.
+			if (i > 1)
 			{
-				imwrite(filename, foregroundImage);
-				foregroundImages.push_back(foregroundImage.clone());
+				imwrite(filename, foregroundMask);
+				foregroundImages.push_back(foregroundMask.clone());
 			}
 		}
 
 		return foregroundImages;
-
-		waitKey();
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////
@@ -548,7 +521,21 @@ namespace experimental
 		return image;
 	}
 
-	void on_trackbar(int, void*) {
-		printf("%d\n", g_slider);
+	Mat applyMask(Mat& image, Mat& mask) {
+		Mat final_mask(image.size(), image.type(), cv::Scalar(255));
+		for (int i = 0; i < image.rows; i++) {
+			for (int j = 0; j < image.cols; j++) {
+				if (image.at<uchar>(i,j) < 79 ){
+					//cout << "If statement went in";
+					final_mask.at<uchar>(i, j) = image.at<uchar>(i,j);
+					final_mask.at<uchar>(i, j) = 0;
+				}
+			}
+		}
+		
+		//TODO: Instead of just using bitwise, what would be the best?
+		cv::bitwise_and(final_mask, mask, final_mask);
+
+		return final_mask;
 	}
 }

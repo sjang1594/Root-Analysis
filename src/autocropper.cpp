@@ -18,7 +18,7 @@ using namespace OcvUtility;
 
 Rect computeVerticalContainerBoundaries(Mat originalImage)
 {
-	Mat verticalContainerBoundaries = findLargestVerticalLines(originalImage, 0.65);
+	Mat verticalContainerBoundaries = findLargestVerticalLines(originalImage, 0.54);
 	imwrite("TestImages/DEBUG/VerticalContainerLines.png", verticalContainerBoundaries);
 	
 	// If the container is not centered perfectly in front of the camera (which is likely),
@@ -30,7 +30,7 @@ Rect computeVerticalContainerBoundaries(Mat originalImage)
 
 Rect computeHorizontalContainerBoundaries(Mat verticalContainerImage)
 {
-	Mat horizontalContainerBoundaries = findLargestHorizontalLines(verticalContainerImage, 0.9);
+	Mat horizontalContainerBoundaries = findLargestHorizontalLines(verticalContainerImage, 0.78);
 	imwrite("TestImages/DEBUG/HorizontalContainerLines.png", horizontalContainerBoundaries);
 	Rect horizontalContainerRegion = computeInnermostRectangle(horizontalContainerBoundaries);
 
@@ -42,17 +42,22 @@ Rect computeGelRegion(Mat originalImage)
 {
 	Rect verticalContainerLines = computeVerticalContainerBoundaries(originalImage);
 	Mat verticalContainerImage = originalImage(verticalContainerLines);
-	imwrite("TestImages/DEBUG/VerticalContainerImage.png", verticalContainerImage);
+	imwrite("TestImages/DEBUG/VerticalContainerImage.png", verticalContainerImage);	
+	auto elem1 = getStructuringElement(MORPH_RECT, Size(15, 7));
+	auto elem2 = getStructuringElement(MORPH_RECT, Size(5, 3));
 
-	auto elem = getStructuringElement(MORPH_RECT, Size(11, 9));
 	Mat tmpVerticalContainerImage;
-	morphologyEx(verticalContainerImage, tmpVerticalContainerImage, MORPH_CLOSE, elem);
+	cv::morphologyEx(verticalContainerImage, tmpVerticalContainerImage, cv::MORPH_DILATE, elem1);
+	cv::morphologyEx(tmpVerticalContainerImage, tmpVerticalContainerImage, cv::MORPH_ERODE, elem2);
+
 
 	Rect horizontalContainerLines = computeHorizontalContainerBoundaries(tmpVerticalContainerImage);
 	Mat containerImage = verticalContainerImage(horizontalContainerLines);
 	imwrite("TestImages/DEBUG/ContainerImage.png", containerImage);
 
-	Rect gelRegionWRToriginal = Rect(verticalContainerLines.x + horizontalContainerLines.x, verticalContainerLines.y + horizontalContainerLines.y, horizontalContainerLines.width, horizontalContainerLines.height);
+	Rect gelRegionWRToriginal = Rect(verticalContainerLines.x + horizontalContainerLines.x, 
+		verticalContainerLines.y + horizontalContainerLines.y, horizontalContainerLines.width, 
+		horizontalContainerLines.height);
 
 	return gelRegionWRToriginal;
 }
@@ -71,8 +76,11 @@ Rect computeCropRegion(Mat img)
 	// Find the root system within the gel.
 	keepOnlyLargestContour(containerImage);
 	Mat rootSystem = containerImage;
+	
+	//// Do some morphology
 	imwrite("TestImages/DEBUG/PossibleRootSystem.png", containerImage);
 
+	// TODO : Check this part 
 	int rowPositionWithMaximumBlackPixels = computeRowWithMaximumBlackPixels(containerImage);
 	Rect rootRectangle = computeMaximumRootExtents(containerImage, rowPositionWithMaximumBlackPixels);
 	Rect rootRectangleWRToriginal = Rect(rootRectangle.x + gelRegion.x, rootRectangle.y + gelRegion.y, rootRectangle.width, rootRectangle.height);
@@ -116,9 +124,8 @@ int main(int argc, char** argv)
 	}
 
 	vector<Mat> originalImages = ImageReader::readDataset(argv[1]);
-
 	vector<Mat> preprocess_Images = imagePreprocess(originalImages);
-	vector<Mat> foregroundImages = computeForegroundImages(originalImages);
+	vector<Mat> foregroundImages = computeForegroundImages(preprocess_Images);
 	
 	Mat orImage = or_op(foregroundImages);
 

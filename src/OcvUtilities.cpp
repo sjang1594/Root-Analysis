@@ -6,7 +6,7 @@ using namespace cv;
 namespace OcvUtility
 {
 	//////////////////////////////////////////////////////////////////////////////////
-	// and_op()
+	// and()
 	//
 	// Combine the images via an and operation -- useful in visualization of the
 	// maximum extents of the root system.

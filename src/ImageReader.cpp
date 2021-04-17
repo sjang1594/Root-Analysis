@@ -36,7 +36,7 @@ vector<Mat> ImageReader::readDataset(const string& startingImageFilename)
 		}
 		else
 		{
-			Mat image = imread(filename, cv::IMREAD_GRAYSCALE);
+			Mat image = imread(filename, IMREAD_GRAYSCALE);
 
 			images.push_back(image);
 		}
